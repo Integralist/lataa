@@ -111,7 +111,7 @@ Detail: Couldn't find Version '[abc, 999, 0000-00-00 00:00:00]'
 Activate a specific version (doesn't require additional flags):
 
 ```bash
-lataa -activate-version 432                                                                                                                                      
+lataa -activate-version 123 
 
 Service 'abc' now has version '123' activated
 ```
