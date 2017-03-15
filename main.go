@@ -80,7 +80,7 @@ func main() {
 	}
 
 	if *appVersion == true {
-		fmt.Println("1.0.0")
+		fmt.Println("1.0.1")
 		os.Exit(1)
 	}
 
@@ -217,6 +217,7 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Printf("Successfully created new version %s from latest version %s\n\n", clonedVersion.Number, latestVersion)
+			selectedVersion = clonedVersion.Number
 		}
 	}
 
