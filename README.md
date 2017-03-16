@@ -32,6 +32,8 @@ lataa -help
         specify Fastly service 'version' to clone from before uploading to
   -dir string
         vcl directory to upload files from (default "VCL_DIRECTORY")
+  -get-latest-version
+        get latest Fastly service version and its active status
   -get-version-status string
         retrieve status for the specified Fastly service 'version'
   -help
@@ -50,6 +52,7 @@ lataa -help
         use latest version to upload to (presumes not activated)
   -version
         show application version
+
 ```
 
 None of the following snippets will work without one of the listed flags (although, any snippet that doesn't specify a `-service` or `-token` flag, does presume the equivalent environment variable has been set in its place):
@@ -87,6 +90,14 @@ lataa -skip 'foo|bar'
 
 > If no flag provided, we'll look for the environment var:  
 > `VCL_SKIP_DIRECTORY`
+
+View latest version and its status (doesn't require additional flags):
+
+```bash
+lataa -get-latest-version
+
+Latest service version: 123 (already activated)
+```
 
 View the status of a specific version (doesn't require additional flags):
 

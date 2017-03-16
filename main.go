@@ -59,10 +59,14 @@ var yellow = color.New(color.FgYellow).SprintFunc()
 var red = color.New(color.FgRed).SprintFunc()
 var green = color.New(color.FgGreen).SprintFunc()
 
+// Version is the application version
+const Version = "1.1.0"
+
 func main() {
 	help := flag.Bool("help", false, "show available flags")
 	appVersion := flag.Bool("version", false, "show application version")
-	useLatestVersion := flag.Bool("use-latest-version", false, "use latest version to upload to (presumes not activated)")
+	useLatestVersion := flag.Bool("use-latest-version", false, "use latest Fastly service version to upload to (presumes not activated)")
+	getLatestVersion := flag.Bool("get-latest-version", false, "get latest Fastly service version and its active status")
 	cloneVersion := flag.String("clone-version", "", "specify Fastly service 'version' to clone from before uploading to")
 	uploadVersion := flag.String("upload-version", "", "specify non-active Fastly service 'version' to upload to")
 	activateVersion := flag.String("activate-version", "", "specify Fastly service 'version' to activate")
@@ -80,7 +84,7 @@ func main() {
 	}
 
 	if *appVersion == true {
-		fmt.Println("1.0.1")
+		fmt.Println(Version)
 		os.Exit(1)
 	}
 
@@ -106,6 +110,17 @@ func main() {
 
 	fastlyServiceID = *service
 
+	if *getLatestVersion {
+		latestVersion, status, err := getLatestServiceVersion(client)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("\nLatest service version: %s (%s)\n\n", latestVersion, status)
+		return
+	}
+
 	// Activate Version
 	if *activateVersion != "" {
 		_, err := client.ActivateVersion(&fastly.ActivateVersionInput{
@@ -122,17 +137,10 @@ func main() {
 
 	// Version Status Check
 	if *statusVersion != "" {
-		versionStatus, err := client.GetVersion(&fastly.GetVersionInput{
-			Service: fastlyServiceID,
-			Version: *statusVersion,
-		})
+		status, err := getStatusVersion(*statusVersion, client)
 		if err != nil {
-			fmt.Printf("\nThere was a problem getting version %s\n\n%s", yellow(*statusVersion), red(err))
+			fmt.Printf("\nThere was a problem getting the status for version %s\n\n%s\n\n", yellow(*statusVersion), red(err))
 			os.Exit(1)
-		}
-		status := green("not activated")
-		if versionStatus.Active {
-			status = red("already activated")
 		}
 		fmt.Printf("\nService '%s' version '%s' is '%s'\n\n", yellow(fastlyServiceID), yellow(*statusVersion), status)
 		return
@@ -149,6 +157,8 @@ func main() {
 	// 		B. upload files to the specified version: `-upload-version`
 	// 		C. upload files to the latest version: `-use-latest-version`
 	// 		D. clone the latest version if it's already activated
+
+	// Clone from specified version and upload to that
 	if *cloneVersion != "" {
 		clonedVersion, err := cloneFromVersion(*cloneVersion, client)
 		if err != nil {
@@ -159,6 +169,7 @@ func main() {
 		fmt.Printf("Successfully created new version %s from existing version %s\n\n", clonedVersion.Number, *cloneVersion)
 		selectedVersion = *cloneVersion
 	} else if *uploadVersion != "" {
+		// Upload to the specified version (it can't be activated)
 		getVersion, err := client.GetVersion(&fastly.GetVersionInput{
 			Service: fastlyServiceID,
 			Version: *uploadVersion,
@@ -173,29 +184,15 @@ func main() {
 		}
 		selectedVersion = *uploadVersion
 	} else {
-		// We have to get all the versions and then sort them to find the actual latest
-		listVersions, err := client.ListVersions(&fastly.ListVersionsInput{
-			Service: fastlyServiceID,
-		})
+		latestVersion, err := getLatestVCLVersion(client)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		wv := wrappedVersions{}
-		for _, v := range listVersions {
-			i, err := strconv.Atoi(v.Number)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			wv = append(wv, version{i, v})
-		}
-		sort.Sort(wv)
-
-		latestVersion = strconv.Itoa(wv[len(wv)-1].Number)
 		selectedVersion = latestVersion
 
+		// Upload to the latest version (it can't be activated)
 		if *useLatestVersion {
 			getVersion, err := client.GetVersion(&fastly.GetVersionInput{
 				Service: fastlyServiceID,
@@ -211,6 +208,7 @@ func main() {
 			}
 			selectedVersion = latestVersion
 		} else {
+			// Otherwise clone the latest version and upload to that
 			clonedVersion, err := cloneFromVersion(latestVersion, client)
 			if err != nil {
 				fmt.Println(err)
@@ -246,6 +244,23 @@ func main() {
 	}
 }
 
+func getStatusVersion(statusVersion string, client *fastly.Client) (string, error) {
+	versionStatus, err := client.GetVersion(&fastly.GetVersionInput{
+		Service: fastlyServiceID,
+		Version: statusVersion,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	status := green("not activated")
+	if versionStatus.Active {
+		status = red("already activated")
+	}
+
+	return status, nil
+}
+
 func cloneFromVersion(version string, client *fastly.Client) (*fastly.Version, error) {
 	clonedVersion, err := client.CloneVersion(&fastly.CloneVersionInput{
 		Service: fastlyServiceID,
@@ -256,6 +271,28 @@ func cloneFromVersion(version string, client *fastly.Client) (*fastly.Version, e
 	}
 
 	return clonedVersion, nil
+}
+
+func getLatestVCLVersion(client *fastly.Client) (string, error) {
+	// We have to get all the versions and then sort them to find the actual latest
+	listVersions, err := client.ListVersions(&fastly.ListVersionsInput{
+		Service: fastlyServiceID,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	wv := wrappedVersions{}
+	for _, v := range listVersions {
+		i, err := strconv.Atoi(v.Number)
+		if err != nil {
+			return "", err
+		}
+		wv = append(wv, version{i, v})
+	}
+	sort.Sort(wv)
+
+	return strconv.Itoa(wv[len(wv)-1].Number), nil
 }
 
 func aggregate(path string, f os.FileInfo, err error) error {
@@ -345,4 +382,18 @@ func getLocalVCL(path string) (string, error) {
 		return "", err
 	}
 	return string(content), nil
+}
+
+func getLatestServiceVersion(client *fastly.Client) (string, string, error) {
+	latestVersion, err := getLatestVCLVersion(client)
+	if err != nil {
+		return "", "", err
+	}
+
+	status, err := getStatusVersion(latestVersion, client)
+	if err != nil {
+		return "", "", err
+	}
+
+	return latestVersion, status, nil
 }
