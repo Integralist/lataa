@@ -32,6 +32,8 @@ lataa -help
         specify Fastly service 'version' to clone from before uploading to
   -dir string
         vcl directory to upload files from (default "VCL_DIRECTORY")
+  -get-settings string
+        get settings (Default TTL & Host) for specified Fastly service version (version number or latest)
   -get-latest-version
         get latest Fastly service version and its active status
   -get-version-status string
@@ -52,7 +54,6 @@ lataa -help
         use latest version to upload to (presumes not activated)
   -version
         show application version
-
 ```
 
 None of the following snippets will work without one of the listed flags (although, any snippet that doesn't specify a `-service` or `-token` flag, does presume the equivalent environment variable has been set in its place):
@@ -125,6 +126,24 @@ Activate a specific version (doesn't require additional flags):
 lataa -activate-version 123 
 
 Service 'abc' now has version '123' activated
+```
+
+View the default TTL and Host settings information (doesn't require additional flags):
+
+```bash
+lataa -get-settings 123
+
+Default Host:
+Default TTL: 3600 (seconds)
+```
+
+Here is another example of viewing the settings for the latest service version:
+
+```bash
+lataa -get-settings latest
+
+Default Host:
+Default TTL: 3600 (seconds)
 ```
 
 ## Logic Flow

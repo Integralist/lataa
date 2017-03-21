@@ -16,6 +16,9 @@ import (
 	fastly "github.com/sethvargo/go-fastly"
 )
 
+// Version is the application version
+const Version = "1.2.0"
+
 // Fastly API doesn't return sorted data
 type version struct {
 	Number  int
@@ -59,14 +62,12 @@ var yellow = color.New(color.FgYellow).SprintFunc()
 var red = color.New(color.FgRed).SprintFunc()
 var green = color.New(color.FgGreen).SprintFunc()
 
-// Version is the application version
-const Version = "1.1.0"
-
 func main() {
 	help := flag.Bool("help", false, "show available flags")
 	appVersion := flag.Bool("version", false, "show application version")
 	useLatestVersion := flag.Bool("use-latest-version", false, "use latest Fastly service version to upload to (presumes not activated)")
 	getLatestVersion := flag.Bool("get-latest-version", false, "get latest Fastly service version and its active status")
+	getSettings := flag.String("get-settings", "", "get settings (Default TTL & Host) for specified Fastly service version (version number or latest)")
 	cloneVersion := flag.String("clone-version", "", "specify Fastly service 'version' to clone from before uploading to")
 	uploadVersion := flag.String("upload-version", "", "specify non-active Fastly service 'version' to upload to")
 	activateVersion := flag.String("activate-version", "", "specify Fastly service 'version' to activate")
@@ -109,6 +110,22 @@ func main() {
 	}
 
 	fastlyServiceID = *service
+
+	if *getSettings == "latest" {
+		latestVersion, _, err := getLatestServiceVersion(client)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		printSettingsFor(latestVersion, client)
+		return
+	}
+
+	if *getSettings != "" {
+		printSettingsFor(*getSettings, client)
+		return
+	}
 
 	if *getLatestVersion {
 		latestVersion, status, err := getLatestServiceVersion(client)
@@ -242,6 +259,23 @@ func main() {
 			fmt.Printf("\nYay, the file '%s' was uploaded successfully", green(vclFile.Name))
 		}
 	}
+}
+
+func printSettingsFor(serviceVersion string, client *fastly.Client) {
+	settings, err := client.GetSettings(&fastly.GetSettingsInput{
+		Service: fastlyServiceID,
+		Version: serviceVersion,
+	})
+	if err != nil {
+		fmt.Printf("\nThere was a problem getting the settings for version %s\n\n%s", yellow(serviceVersion), red(err))
+		os.Exit(1)
+	}
+
+	fmt.Printf(
+		"\nDefault Host: %s\nDefault TTL: %d (seconds)\n\n",
+		settings.DefaultHost,
+		settings.DefaultTTL,
+	)
 }
 
 func getStatusVersion(statusVersion string, client *fastly.Client) (string, error) {
