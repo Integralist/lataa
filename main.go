@@ -256,7 +256,7 @@ func main() {
 		if vclFile.Error {
 			fmt.Printf("\nWhoops, the file '%s' didn't upload because of the following error:\n\t%s\n", yellow(vclFile.Name), red(vclFile.Content))
 		} else {
-			fmt.Printf("\nYay, the file '%s' was uploaded successfully", green(vclFile.Name))
+			fmt.Printf("\nYay, the file '%s' was updated successfully", green(vclFile.Name))
 		}
 	}
 }

@@ -6,6 +6,13 @@ Lataa is a cli tool, built in [Go](https://golang.org), used to upload local VCL
 
 If you require a cli tool for diffing your local VCL files against a remote version within a Fastly account, then see [Ero](https://github.com/Integralist/ero)
 
+* [Why?](#why)
+* [Installation](#installation)
+* [Usage](#usage)
+* [Snippets](#snippets)
+* [Logic Flow](#logic-flow)
+* [Example](#example)
+
 ## Why?
 
 I already had a tool for diffing local VCL files against remote versions stored within our Fastly CDN account (called [Ero](https://github.com/integralist/ero)) and I realised there were still two other minor annoyances for me when dealing with the Fastly UI:
@@ -56,13 +63,17 @@ lataa -help
         show application version
 ```
 
-None of the following snippets will work without one of the listed flags (although, any snippet that doesn't specify a `-service` or `-token` flag, does presume the equivalent environment variable has been set in its place):
+## Snippets
+
+None of the following snippets will work without one of these listed flags:
 
 * `-clone-version`
 * `-upload-version`
 * `-use-latest-version`
 
-> See "[Logic Flow](#logic-flow)" below for details
+Although, any snippet that doesn't specify a `-service` or `-token` flag, does presume the equivalent environment variable has been set in its place.
+
+> See also the "[Logic Flow](#logic-flow)" section below for more details
 
 Specify credentials via cli flags:
 
@@ -92,7 +103,17 @@ lataa -skip 'foo|bar'
 > If no flag provided, we'll look for the environment var:  
 > `VCL_SKIP_DIRECTORY`
 
-View latest version and its status (doesn't require additional flags):
+---
+
+The following snippets do _not_ require any additional flags.
+
+e.g. they do not also require `-clone-version`, `-upload-version` or `-use-latest-version` (where as the above snippets did).
+
+Although these following snippets do still need the `-service` and `-token` flags (or the appropriate environment variables to be set) so that you can authenticate with Fastly.
+
+---
+
+View latest version and its status:
 
 ```bash
 lataa -get-latest-version
@@ -100,12 +121,12 @@ lataa -get-latest-version
 Latest service version: 123 (already activated)
 ```
 
-View the status of a specific version (doesn't require additional flags):
+View the status of a specific version:
 
 ```bash
-lataa -get-version-status 123
+lataa -get-version-status 124
 
-Service 'abc' version '123' is 'not activated'
+Service 'abc' version '124' is 'not activated'
 ```
 
 Here is that example again but when we specify an incorrect version:
@@ -120,15 +141,15 @@ Message: Record not found
 Detail: Couldn't find Version '[abc, 999, 0000-00-00 00:00:00]'
 ```
 
-Activate a specific version (doesn't require additional flags):
+Activate a specific version:
 
 ```bash
-lataa -activate-version 123 
+lataa -activate-version 124 
 
-Service 'abc' now has version '123' activated
+Service 'abc' now has version '124' activated
 ```
 
-View the default TTL and Host settings information (doesn't require additional flags):
+View the default TTL and Host settings information:
 
 ```bash
 lataa -get-settings 123
@@ -148,17 +169,22 @@ Default TTL: 3600 (seconds)
 
 ## Logic Flow
 
-The application has a specific set of flow controls it uses for determining what to do:
+The application has a specific set of flow controls, which it uses in order to determine where to upload the necessary VCL files to.
 
-If user doesn't state what version to clone from (e.g. `-clone-version`), then we'll check to see if they specified an existing version to upload to instead (e.g. `-upload-version`). 
+If the user doesn't state a version to clone from (e.g. using the `-clone-version` flag), then we'll check to see if they specified an _existing_ version to upload to instead (e.g. using the `-upload-version` flag). 
 
-If they don't specify a specific version, then we'll presume they want to clone from the latest version. But if the user provides the `-use-latest-version` flag, then we wont clone from the latest but instead we will use the latest version for uploading to.
+> Note: the version specified must not be activated  
+> Otherwise we'll error appropriately
 
-> Note: if the latest version is already activated, then we'll error appropriately
+If the user doesn't use either of those flags, then we'll presume they want to clone the _latest_ service version available and upload the VCL files into this newly cloned version. 
+
+Finally, if the user provides the `-use-latest-version` flag, then we wont clone from the latest service version, but will instead use the latest version for uploading to (as long as it's not already activated; otherwise we'll error appropriately).
 
 ## Example
 
 The following example execution has presumed the use of the environment variables: `VCL_DIRECTORY`, `FASTLY_API_TOKEN`, `FASTLY_SERVICE_ID` to keep the length of the command short.
+
+When uploading files into a specific service version, we'll attempt to 'create' the file first. If that fails we'll presume it's because the file already exists and so we'll attempt to update the specified file instead.
 
 In this example, the latest version is not activated and all the VCL files I'm uploading I know to already exist within that version. So I _expect_ the 'creation' of the VCL files to fail (which they do), and subsequently it'll fallback to trying to 'update' the list of VCL files instead (which, as you'll see, succeeds).
 
@@ -231,17 +257,17 @@ Message: Duplicate record
 Detail: Duplicate vcl: 'ab_tests_deliver'
 We'll now try updating this file instead of creating it
 
-Yay, the file 'detect_edition' was uploaded successfully
-Yay, the file 'set_country_cookie' was uploaded successfully
-Yay, the file 'detect_device' was uploaded successfully
-Yay, the file 'office_ip_list' was uploaded successfully
-Yay, the file 'blacklist' was uploaded successfully
-Yay, the file 'ab_tests_callback' was uploaded successfully
-Yay, the file 'ab_tests_recv' was uploaded successfully
-Yay, the file 'ab_tests_config' was uploaded successfully
-Yay, the file 'main' was uploaded successfully
-Yay, the file 'ab_tests_deliver' was uploaded successfully
-Yay, the file 'logging' was uploaded successfully
+Yay, the file 'detect_edition' was updated successfully
+Yay, the file 'set_country_cookie' was updated successfully
+Yay, the file 'detect_device' was updated successfully
+Yay, the file 'office_ip_list' was updated successfully
+Yay, the file 'blacklist' was updated successfully
+Yay, the file 'ab_tests_callback' was updated successfully
+Yay, the file 'ab_tests_recv' was updated successfully
+Yay, the file 'ab_tests_config' was updated successfully
+Yay, the file 'main' was updated successfully
+Yay, the file 'ab_tests_deliver' was updated successfully
+Yay, the file 'logging' was updated successfully
 ```
 
 ## Build
